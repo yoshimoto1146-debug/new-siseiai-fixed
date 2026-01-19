@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Activity, ArrowLeft, Info } from 'lucide-react';
+import { CheckCircle2, Activity, ArrowLeft, Info, Sparkles } from 'lucide-react';
 import { AnalysisResults, PhotoData, PostureLandmarks, Point2D, PosturePoint } from '../types';
 
 const LandmarkLayer: React.FC<{ landmarks: PostureLandmarks; color: string; photo: PhotoData }> = ({ landmarks, color, photo }) => {
@@ -42,7 +42,6 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
   const [activeView, setActiveView] = useState<'viewA' | 'viewB'>('viewA');
   const [sliderPos, setSliderPos] = useState(50);
 
-  // もしviewBがなければ常にviewAを表示
   useEffect(() => {
     if (!results.viewB && activeView === 'viewB') {
       setActiveView('viewA');
@@ -60,7 +59,7 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
       <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[3rem] shadow-xl text-center space-y-6">
         <Info className="w-16 h-16 text-blue-500" />
         <h2 className="text-2xl font-black text-slate-900">表示できるデータがありません</h2>
-        <p className="text-slate-500">解析中に問題が発生した可能性があります。もう一度お試しください。</p>
+        <p className="text-slate-500">解析中に問題が発生した可能性があります。</p>
         <button onClick={onReset} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center gap-2">
           <ArrowLeft className="w-5 h-5" /> 最初に戻る
         </button>
@@ -69,7 +68,7 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-6xl mx-auto w-full">
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-6xl mx-auto w-full pb-12">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* 画像比較エリア */}
         <div className="lg:col-span-7 space-y-4">
@@ -85,7 +84,6 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
           )}
           
           <div className="relative aspect-[3/4] bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white group">
-            {/* Before (下層) */}
             <div className="absolute inset-0">
               <img 
                 src={photoBefore.url} 
@@ -96,7 +94,6 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
               <div className="absolute top-6 left-6 px-4 py-2 bg-slate-800/80 backdrop-blur-md rounded-full text-[10px] font-black text-white tracking-widest border border-white/10 uppercase">Before</div>
             </div>
             
-            {/* After (上層 - スライダーで隠す) */}
             <div className="absolute inset-0 z-20" style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}>
               <img 
                 src={photoAfter.url} 
@@ -107,7 +104,6 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
               <div className="absolute top-6 left-6 px-4 py-2 bg-blue-600 rounded-full text-[10px] font-black text-white tracking-widest shadow-lg uppercase">After</div>
             </div>
             
-            {/* スライダー */}
             <input 
               type="range" 
               className="absolute bottom-10 left-10 right-10 z-50 accent-blue-600 h-1.5 bg-white/20 rounded-full appearance-none cursor-pointer" 
@@ -117,13 +113,13 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
           </div>
         </div>
 
-        {/* 評価エリア */}
+        {/* 評価・アドバイスエリア */}
         <div className="lg:col-span-5 space-y-4 flex flex-col">
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden shrink-0 border border-white/5">
             <p className="text-[10px] font-black tracking-[0.2em] text-blue-400 uppercase mb-4">POSTURE ANALYSIS PRO</p>
             <div className="flex justify-between items-end mb-6">
               <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-500 uppercase">Analysis Score</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase">総合スコア (After)</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-7xl font-black tracking-tighter tabular-nums leading-none">{results.overallAfterScore}</span>
                   <span className="text-xl font-bold text-blue-500">/100</span>
@@ -135,30 +131,39 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
             </div>
           </div>
 
-          <div className="flex-grow space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[400px]">
-            {Object.entries(results.detailedScores).map(([key, value]) => {
-              const item = value as PosturePoint;
-              return (
-                <div key={key} className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4 transition-all hover:border-blue-200 group">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${item.status === 'improved' ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-blue-500'}`}>
-                    {item.status === 'improved' ? <CheckCircle2 className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+          <div className="flex-grow space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+            {Object.entries(results.detailedScores).map(([key, item]) => (
+              <div key={key} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm transition-all hover:border-blue-200 group">
+                <div className="flex items-center gap-4 mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.status === 'improved' ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-blue-500'}`}>
+                    {item.status === 'improved' ? <CheckCircle2 className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
                   </div>
                   <div className="flex-grow">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-black text-xs text-slate-700">{item.label}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-xs text-slate-700 uppercase">{item.label}</span>
                       <span className="text-sm font-black text-blue-600">{item.score}<span className="text-[10px] ml-0.5">pts</span></span>
                     </div>
-                    <div className="w-full bg-slate-50 h-1 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-full transition-all" style={{ width: `${item.score}%` }}></div>
+                    <div className="w-full bg-slate-50 h-1.5 rounded-full overflow-hidden mt-1">
+                      <div className="bg-blue-600 h-full transition-all duration-1000" style={{ width: `${item.score}%` }}></div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+                {/* 改善アドバイスの表示を追加 */}
+                <div className="mt-2 pl-14 relative">
+                  <div className="absolute left-[52px] top-1 bottom-1 w-[2px] bg-blue-100 rounded-full"></div>
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-3 h-3 text-blue-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold text-slate-500 leading-relaxed italic">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <button onClick={onReset} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm tracking-widest uppercase hover:bg-blue-600 transition-all shadow-xl flex items-center justify-center gap-2">
-            <ArrowLeft className="w-4 h-4" /> NEW ANALYSIS
+          <button onClick={onReset} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm tracking-widest uppercase hover:bg-blue-600 transition-all shadow-xl flex items-center justify-center gap-2 mt-2">
+            <ArrowLeft className="w-4 h-4" /> 新しい分析を開始
           </button>
         </div>
       </div>
