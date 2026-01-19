@@ -1,138 +1,136 @@
 import React, { useState } from 'react';
-import { PhotoUploader } from './components/PhotoUploader';
-import { ImageAdjustment } from './components/ImageAdjustment';
-import { AnalysisView } from './components/AnalysisView';
-import { ViewType, PhotoData, AnalysisResults } from './types';
-import { analyzePosture, fileToBase64, resizeImage } from './services/gemini';
-import { ChevronLeft, Sparkles, Activity, User, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Activity, Share2, ArrowLeft } from 'lucide-react';
+import { AnalysisResults, PhotoData, PostureLandmarks, Point2D, PosturePoint } from '../types';
 
-const App: React.FC = () => {
-  const [step, setStep] = useState<'type-select' | 'upload' | 'align' | 'analyze'>('type-select');
-  const [selectedViews, setSelectedViews] = useState<ViewType[]>(['back']);
+const LandmarkLayer: React.FC<{ landmarks: PostureLandmarks; color: string; photo: PhotoData }> = ({ landmarks, color, photo }) => {
+  if (!landmarks) return null;
+  const toPct = (val: number) => val / 10;
   
-  const [photos, setPhotos] = useState<Record<string, PhotoData>>({
-    'v1-before': { id: 'v1-before', url: '', scale: 1, offset: { x: 0, y: 0 }, isFlipped: false },
-    'v1-after': { id: 'v1-after', url: '', scale: 1, offset: { x: 0, y: 0 }, isFlipped: false },
-    'v2-before': { id: 'v2-before', url: '', scale: 1, offset: { x: 0, y: 0 }, isFlipped: false },
-    'v2-after': { id: 'v2-after', url: '', scale: 1, offset: { x: 0, y: 0 }, isFlipped: false },
-  });
-
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [results, setResults] = useState<AnalysisResults | null>(null);
-
-  const viewLabels: Record<ViewType, string> = {
-    front: '前面', back: '後面', side: '側面', extension: '伸展', flexion: '屈曲'
+  const generateSpinePath = () => {
+    if (!landmarks.spinePath || landmarks.spinePath.length === 0) return "";
+    return `M ${landmarks.spinePath.map(p => `${toPct(p.x)} ${toPct(p.y)}`).join(' L ')}`;
   };
 
-  const handleTypeToggle = (type: ViewType) => {
-    if (selectedViews.includes(type)) {
-      if (selectedViews.length > 1) setSelectedViews(selectedViews.filter(v => v !== type));
-    } else {
-      if (selectedViews.length < 2) setSelectedViews([...selectedViews, type]);
-      else setSelectedViews([selectedViews[1], type]);
-    }
-  };
-
-  const handleUpload = async (key: string, file: File) => {
-    const base64 = await fileToBase64(file);
-    const resized = await resizeImage(base64);
-    setPhotos(prev => ({ ...prev, [key]: { ...prev[key], url: resized } }));
-  };
-
-  const canProceedToAlign = () => {
-    return selectedViews.every((_, i) => photos[`v${i+1}-before`].url && photos[`v${i+1}-after`].url);
-  };
-
-  const startAnalysis = async () => {
-    setStep('analyze');
-    setIsAnalyzing(true);
-    try {
-      const v1 = { type: selectedViews[0], before: photos['v1-before'].url, after: photos['v1-after'].url };
-      const v2 = selectedViews.length > 1 ? { type: selectedViews[1], before: photos['v2-before'].url, after: photos['v2-after'].url } : undefined;
-      const res = await analyzePosture(v1, v2);
-      setResults(res);
-    } catch (e: any) {
-      alert(`分析失敗: ${e.message}`);
-      setStep('align');
-    }
-    setIsAnalyzing(false);
+  const style = { 
+    transform: `scale(${photo.scale}) translate(${photo.offset.x}px, ${photo.offset.y}px) scaleX(${photo.isFlipped ? -1 : 1})`,
+    transformOrigin: 'center center'
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col p-4 md:p-8">
-      <header className="max-w-6xl mx-auto w-full flex items-center mb-8 gap-3">
-        <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-          <Activity className="w-5 h-5" />
-        </div>
-        <h1 className="font-black text-slate-900 tracking-tight text-xl italic uppercase">PostureRefine Pro</h1>
-      </header>
-
-      <main className="flex-grow flex flex-col max-w-6xl mx-auto w-full">
-        {step === 'type-select' && (
-          <div className="my-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="text-center space-y-3">
-              <h2 className="text-4xl font-black text-slate-900">分析する視点を選択</h2>
-              <p className="text-slate-400 font-bold">後面のみでも、2つの視点でも分析可能です</p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {(Object.keys(viewLabels) as ViewType[]).map(type => (
-                <button key={type} onClick={() => handleTypeToggle(type)} className={`p-8 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-4 ${selectedViews.includes(type) ? 'border-blue-600 bg-blue-50 text-blue-600 ring-4 ring-blue-50' : 'border-slate-100 bg-white text-slate-400'}`}>
-                  <User className="w-8 h-8" />
-                  <span className="font-black text-sm uppercase">{viewLabels[type]}</span>
-                </button>
-              ))}
-            </div>
-            <button disabled={selectedViews.length === 0} onClick={() => setStep('upload')} className="mx-auto flex items-center gap-3 px-14 py-6 bg-slate-900 text-white rounded-[2rem] font-black text-lg shadow-2xl disabled:opacity-20 hover:bg-blue-600 transition-all">
-              画像アップロードへ <ArrowRight className="w-6 h-6" />
-            </button>
-          </div>
-        )}
-
-        {step === 'upload' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <button onClick={() => setStep('type-select')} className="text-slate-400 font-black text-xs flex items-center gap-2 tracking-widest uppercase"><ChevronLeft className="w-4 h-4" /> 視点選択に戻る</button>
-            <div className={`grid grid-cols-1 ${selectedViews.length > 1 ? 'md:grid-cols-2' : ''} gap-12`}>
-              {selectedViews.map((view, i) => (
-                <div key={view} className="space-y-6">
-                  <h3 className="font-black text-slate-900 uppercase tracking-widest text-center">{viewLabels[view]}分析</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <PhotoUploader label="Before" imageUrl={photos[`v${i+1}-before`].url} onUpload={(f) => handleUpload(`v${i+1}-before`, f)} />
-                    <PhotoUploader label="After" imageUrl={photos[`v${i+1}-after`].url} onUpload={(f) => handleUpload(`v${i+1}-after`, f)} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button disabled={!canProceedToAlign()} onClick={() => setStep('align')} className="mx-auto block px-16 py-6 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl disabled:opacity-10">
-              位置合わせの調整
-            </button>
-          </div>
-        )}
-
-        {step === 'align' && (
-          <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500">
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-               {selectedViews.flatMap((_, i) => [
-                 <ImageAdjustment key={`v${i+1}-before`} photo={photos[`v${i+1}-before`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-before`]: p}))} />,
-                 <ImageAdjustment key={`v${i+1}-after`} photo={photos[`v${i+1}-after`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-after`]: p}))} referencePhoto={photos[`v${i+1}-before`]} />
-               ])}
-             </div>
-             <button onClick={startAnalysis} className="mt-auto px-12 py-5 bg-blue-600 text-white rounded-3xl font-black flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-transform">
-               <Sparkles className="w-6 h-6" /> AI 高精密解析を開始
-             </button>
-          </div>
-        )}
-
-        {step === 'analyze' && (
-          isAnalyzing ? (
-            <div className="my-auto flex flex-col items-center justify-center space-y-8">
-              <div className="w-24 h-24 border-8 border-blue-50 border-t-blue-600 rounded-full animate-spin"></div>
-              <h2 className="text-2xl font-black text-slate-900">AI 姿勢診断中...</h2>
-            </div>
-          ) : results && <AnalysisView results={results} photos={photos} onReset={() => setStep('type-select')} />
-        )}
-      </main>
+    <div className="absolute inset-0 pointer-events-none z-40" style={style}>
+      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line 
+          x1={toPct(landmarks.head.x)} y1={toPct(landmarks.head.y)} 
+          x2={toPct(landmarks.heel.x)} y2={toPct(landmarks.heel.y)} 
+          stroke={color} strokeWidth="0.2" strokeDasharray="1,1" strokeOpacity="0.3" 
+        />
+        <path d={generateSpinePath()} fill="none" stroke={color} strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {Object.entries(landmarks).map(([key, point]) => {
+        if (key === 'spinePath' || !point || Array.isArray(point)) return null;
+        const p = point as Point2D;
+        return (
+          <div key={key} className="absolute w-1.5 h-1.5 rounded-full border border-white shadow-sm -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${toPct(p.x)}%`, top: `${toPct(p.y)}%`, backgroundColor: color }} />
+        );
+      })}
     </div>
   );
 };
 
-export default App;
+export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<string, PhotoData>; onReset: () => void }> = ({ results, photos, onReset }) => {
+  const [activeView, setActiveView] = useState<'viewA' | 'viewB'>('viewA');
+  const [sliderPos, setSliderPos] = useState(50);
+
+  const viewData = activeView === 'viewA' ? results.viewA : results.viewB;
+  const photoKey = activeView === 'viewA' ? 'v1' : 'v2';
+  
+  const photoBefore = photos[`${photoKey}-before`];
+  const photoAfter = photos[`${photoKey}-after`];
+
+  if (!viewData || !photoBefore || !photoAfter) return null;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-6xl mx-auto w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-7 space-y-4">
+          {results.viewB && (
+            <div className="flex bg-white p-1 rounded-2xl border shadow-sm">
+              <button onClick={() => setActiveView('viewA')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${activeView === 'viewA' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
+                視点 1: {results.viewA.type.toUpperCase()}
+              </button>
+              <button onClick={() => setActiveView('viewB')} className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${activeView === 'viewB' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
+                視点 2: {results.viewB.type.toUpperCase()}
+              </button>
+            </div>
+          )}
+          
+          <div className="relative aspect-[3/4] bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white group">
+            <div className="absolute inset-0">
+              <img src={photoBefore.url} className="w-full h-full object-contain opacity-50 grayscale" style={{ transform: `scale(${photoBefore.scale}) translate(${photoBefore.offset.x}px, ${photoBefore.offset.y}px) scaleX(${photoBefore.isFlipped ? -1 : 1})` }} />
+              <LandmarkLayer landmarks={viewData.beforeLandmarks} color="#94a3b8" photo={photoBefore} />
+              <div className="absolute top-6 left-6 px-4 py-2 bg-slate-800/80 backdrop-blur-md rounded-full text-[10px] font-black text-white tracking-widest border border-white/10 uppercase">Before</div>
+            </div>
+            
+            <div className="absolute inset-0 z-20" style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}>
+              <img src={photoAfter.url} className="w-full h-full object-contain" style={{ transform: `scale(${photoAfter.scale}) translate(${photoAfter.offset.x}px, ${photoAfter.offset.y}px) scaleX(${photoAfter.isFlipped ? -1 : 1})` }} />
+              <LandmarkLayer landmarks={viewData.afterLandmarks} color="#3b82f6" photo={photoAfter} />
+              <div className="absolute top-6 left-6 px-4 py-2 bg-blue-600 rounded-full text-[10px] font-black text-white tracking-widest shadow-lg uppercase">After</div>
+            </div>
+            
+            <input 
+              type="range" 
+              className="absolute bottom-10 left-10 right-10 z-50 accent-blue-600 h-1.5 bg-white/20 rounded-full appearance-none cursor-pointer" 
+              value={sliderPos} 
+              onChange={e => setSliderPos(Number(e.target.value))} 
+            />
+          </div>
+        </div>
+
+        <div className="lg:col-span-5 space-y-4 flex flex-col">
+          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden shrink-0 border border-white/5">
+            <p className="text-[10px] font-black tracking-[0.2em] text-blue-400 uppercase mb-4">POSTURE ANALYSIS PRO</p>
+            <div className="flex justify-between items-end mb-6">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase">Analysis Score</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-7xl font-black tracking-tighter tabular-nums leading-none">{results.overallAfterScore}</span>
+                  <span className="text-xl font-bold text-blue-500">/100</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+              <p className="text-xs font-medium leading-relaxed text-blue-50/80">{results.summary}</p>
+            </div>
+          </div>
+
+          <div className="flex-grow space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[400px]">
+            {Object.entries(results.detailedScores).map(([key, value]) => {
+              const item = value as PosturePoint;
+              return (
+                <div key={key} className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4 transition-all hover:border-blue-200 group">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${item.status === 'improved' ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-blue-500'}`}>
+                    {item.status === 'improved' ? <CheckCircle2 className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+                  </div>
+                  <div className="flex-grow">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-black text-xs text-slate-700">{item.label}</span>
+                      <span className="text-sm font-black text-blue-600">{item.score}<span className="text-[10px] ml-0.5">pts</span></span>
+                    </div>
+                    <div className="w-full bg-slate-50 h-1 rounded-full overflow-hidden">
+                      <div className="bg-blue-600 h-full transition-all" style={{ width: `${item.score}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <button onClick={onReset} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm tracking-widest uppercase hover:bg-blue-600 transition-all shadow-xl flex items-center justify-center gap-2">
+            <ArrowLeft className="w-4 h-4" /> NEW ANALYSIS
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
