@@ -36,7 +36,7 @@ export const analyzePosture = async (
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
 提供されたBefore/After画像を分析し、姿勢の変化を詳細に評価してください。
 各評価項目（detailedScores）において、Before画像時点でのスコア（beforeScore）と、After画像時点でのスコア（afterScore）を算出して比較してください。
-重要: 各項目（detailedScores）の "description" フィールドには、その部位の姿勢を改善するための「具体的で短い一言アドバイス」を必ず含めてください。
+重要: 各項目（detailedScores）の "description" フィールドには、その部位の姿勢を改善するための「具体的で短い理学療法的な一言アドバイス（例：胸を張りましょう、顎を引く意識を）」を必ず日本語で含めてください。
 
 写真が1セットのみの場合は、viewBをnullとして返し、視点1のみで分析を完結させてください。
 座標系は 0-1000 です。関節が見えない場合でも推測して値を埋めてください。
