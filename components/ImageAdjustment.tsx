@@ -33,7 +33,7 @@ export const ImageAdjustment: React.FC<ImageAdjustmentProps> = ({ photo, onUpdat
   return (
     <div className="flex flex-col gap-4 w-full max-w-sm mx-auto">
       <div className="relative w-full aspect-[3/4] bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white select-none touch-none">
-        {/* 操作エリアレイヤー */}
+        {/* 透明なドラッグ受け取りレイヤー */}
         <div 
           className="absolute inset-0 z-[100] cursor-move"
           onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
@@ -45,23 +45,23 @@ export const ImageAdjustment: React.FC<ImageAdjustmentProps> = ({ photo, onUpdat
           onTouchEnd={handleEnd}
         />
 
-        {/* 赤い十字線ガイド (床面ぎりぎりへ移動) */}
+        {/* 赤い十字線ガイド (床面ギリギリ bottom-0 に配置) */}
         <div className="absolute inset-0 z-[80] pointer-events-none">
-          <div className="absolute top-1/2 left-0 w-full h-[2px] bg-red-500/50"></div>
-          <div className="absolute top-0 left-1/2 w-[2px] h-full bg-red-500/50"></div>
+          <div className="absolute top-1/2 left-0 w-full h-[1px] bg-red-500/40"></div>
+          <div className="absolute top-0 left-1/2 w-[1px] h-full bg-red-500/40"></div>
           
-          {/* 足元ターゲット (位置を bottom-2 まで下げました) */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
-            <div className="w-12 h-12 border-[3px] border-red-500 rounded-full flex items-center justify-center bg-red-500/20 backdrop-blur-[2px] shadow-lg animate-pulse">
-              <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+          {/* 足元ターゲット (位置を最下部に固定) */}
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
+            <div className="w-14 h-14 border-[3px] border-red-500 rounded-full flex items-center justify-center bg-red-500/10 backdrop-blur-[2px] shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse">
+              <div className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
             </div>
-            <p className="mt-1 px-3 py-1 bg-red-600 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-lg">
-              かかとをここに
+            <p className="mt-1 px-2 py-0.5 bg-red-600 text-white text-[8px] font-black rounded-full uppercase tracking-tighter shadow-xl ring-1 ring-white/20">
+              かかとをここに固定
             </p>
           </div>
         </div>
 
-        {/* 参照画像 (Before) */}
+        {/* 参照画像 (Before) - 透かし表示 */}
         {referencePhoto && referencePhoto.url && (
           <div 
             className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-30 grayscale"
@@ -87,11 +87,12 @@ export const ImageAdjustment: React.FC<ImageAdjustmentProps> = ({ photo, onUpdat
         </div>
       </div>
 
+      {/* 調整ツール */}
       <div className="flex justify-center items-center gap-2 p-2 bg-white rounded-full shadow-lg border border-slate-100 w-fit mx-auto relative z-[110]">
-        <button onClick={() => onUpdate({...photo, scale: photo.scale + 0.1})} className="p-2.5 hover:bg-slate-50 rounded-full text-slate-600"><ZoomIn className="w-5 h-5"/></button>
-        <button onClick={() => onUpdate({...photo, scale: Math.max(0.1, photo.scale - 0.1)})} className="p-2.5 hover:bg-slate-50 rounded-full text-slate-600"><ZoomOut className="w-5 h-5"/></button>
-        <button onClick={() => onUpdate({...photo, isFlipped: !photo.isFlipped})} className={`p-2.5 rounded-full ${photo.isFlipped ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}><FlipHorizontal2 className="w-5 h-5"/></button>
-        <button onClick={() => onUpdate({...photo, scale: 1, offset: {x:0, y:0}, isFlipped: false})} className="p-2.5 text-red-400 hover:bg-red-50 rounded-full"><RotateCcw className="w-5 h-5"/></button>
+        <button onClick={() => onUpdate({...photo, scale: photo.scale + 0.1})} className="p-2.5 hover:bg-slate-50 rounded-full text-slate-600 transition-colors"><ZoomIn className="w-5 h-5"/></button>
+        <button onClick={() => onUpdate({...photo, scale: Math.max(0.1, photo.scale - 0.1)})} className="p-2.5 hover:bg-slate-50 rounded-full text-slate-600 transition-colors"><ZoomOut className="w-5 h-5"/></button>
+        <button onClick={() => onUpdate({...photo, isFlipped: !photo.isFlipped})} className={`p-2.5 rounded-full transition-all ${photo.isFlipped ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}><FlipHorizontal2 className="w-5 h-5"/></button>
+        <button onClick={() => onUpdate({...photo, scale: 1, offset: {x:0, y:0}, isFlipped: false})} className="p-2.5 text-red-400 hover:bg-red-50 rounded-full transition-colors"><RotateCcw className="w-5 h-5"/></button>
       </div>
     </div>
   );
