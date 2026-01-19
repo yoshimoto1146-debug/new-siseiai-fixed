@@ -36,9 +36,8 @@ export const analyzePosture = async (
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
 提供されたBefore/After画像を分析し、姿勢の変化を詳細に評価してください。
 各評価項目（detailedScores）において、Before画像時点でのスコア（beforeScore）と、After画像時点でのスコア（afterScore）を算出して比較してください。
-重要: 各項目（detailedScores）の "description" フィールドには、その部位の姿勢を改善するための「具体的で短い理学療法的な一言アドバイス（例：胸を張りましょう、顎を引く意識を）」を必ず日本語で含めてください。
+重要: 各項目（detailedScores）の "description" フィールドには、その部位の姿勢を改善するための「具体的で短い理学療法的なアドバイス（日本語）」を必ず含めてください。
 
-写真が1セットのみの場合は、viewBをnullとして返し、視点1のみで分析を完結させてください。
 座標系は 0-1000 です。関節が見えない場合でも推測して値を埋めてください。
 必ず有効なJSONのみを返してください。`;
 
@@ -71,7 +70,7 @@ export const analyzePosture = async (
   };
 
   const parts = [
-    { text: `分析依頼: 視点1は「${viewA.type}」です。${viewB ? `視点2は「${viewB.type}」です。` : '視点2はありません。'}` },
+    { text: `視点1: ${viewA.type}${viewB ? `, 視点2: ${viewB.type}` : ''}` },
     { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
     { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
   ];
@@ -81,53 +80,46 @@ export const analyzePosture = async (
     parts.push({ inlineData: { data: viewB.after.split(',')[1], mimeType: 'image/jpeg' } });
   }
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: [{ role: 'user', parts }],
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            viewA: { 
-              type: Type.OBJECT, 
-              properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
-              required: ['beforeLandmarks', 'afterLandmarks'] 
-            },
-            viewB: { 
-              type: Type.OBJECT, 
-              properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema },
-              nullable: true
-            },
-            overallBeforeScore: { type: Type.NUMBER },
-            overallAfterScore: { type: Type.NUMBER },
-            detailedScores: {
-              type: Type.OBJECT,
-              properties: {
-                straightNeck: scoreItemSchema,
-                rolledShoulder: scoreItemSchema,
-                kyphosis: scoreItemSchema,
-                swayback: scoreItemSchema,
-                oLegs: scoreItemSchema
-              },
-              required: ['straightNeck', 'rolledShoulder', 'kyphosis', 'swayback', 'oLegs']
-            },
-            summary: { type: Type.STRING }
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ role: 'user', parts }],
+    config: {
+      systemInstruction,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          viewA: { 
+            type: Type.OBJECT, 
+            properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
+            required: ['beforeLandmarks', 'afterLandmarks'] 
           },
-          required: ['viewA', 'overallBeforeScore', 'overallAfterScore', 'detailedScores', 'summary']
-        }
+          viewB: { 
+            type: Type.OBJECT, 
+            properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema },
+            nullable: true
+          },
+          overallBeforeScore: { type: Type.NUMBER },
+          overallAfterScore: { type: Type.NUMBER },
+          detailedScores: {
+            type: Type.OBJECT,
+            properties: {
+              straightNeck: scoreItemSchema,
+              rolledShoulder: scoreItemSchema,
+              kyphosis: scoreItemSchema,
+              swayback: scoreItemSchema,
+              oLegs: scoreItemSchema
+            },
+            required: ['straightNeck', 'rolledShoulder', 'kyphosis', 'swayback', 'oLegs']
+          },
+          summary: { type: Type.STRING }
+        },
+        required: ['viewA', 'overallBeforeScore', 'overallAfterScore', 'detailedScores', 'summary']
       }
-    });
+    }
+  });
 
-    const text = response.text;
-    if (!text) throw new Error('AIから応答がありませんでした。');
-    return JSON.parse(text);
-  } catch (e: any) {
-    console.error("Analysis Error:", e);
-    throw new Error(`分析に失敗しました: ${e.message}`);
-  }
+  return JSON.parse(response.text);
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {
