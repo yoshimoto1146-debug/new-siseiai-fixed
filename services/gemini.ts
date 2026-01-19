@@ -35,13 +35,12 @@ export const analyzePosture = async (
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
 提供されたBefore/After画像を分析し、姿勢の変化を詳細に評価してください。
-画像が1つの視点のみの場合、その視点に基づいて最善の分析を行ってください。
-座標系は 0-1000 です。
+重要: 写真が1セット（視点1のみ）の場合は、viewBをnullとして返し、視点1のみで分析を完結させてください。
+座標系は 0-1000 です。関節が見えない場合でも推測して値を埋めてください。
 
 出力JSON仕様:
-- landmark: 指定された各関節の座標。
 - status: 'improved', 'same', 'needs-attention'。
-必ず有効なJSONのみを返してください。解説テキストは含めないでください。`;
+必ず有効なJSONのみを返してください。`;
 
   const pointSchema = {
     type: Type.OBJECT,
@@ -71,7 +70,7 @@ export const analyzePosture = async (
   };
 
   const parts = [
-    { text: `分析開始。視点1: ${viewA.type}${viewB ? `, 視点2: ${viewB.type}` : ''}` },
+    { text: `分析依頼: 視点1は「${viewA.type}」です。${viewB ? `視点2は「${viewB.type}」です。` : '視点2はありません。'}` },
     { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
     { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
   ];
@@ -91,8 +90,16 @@ export const analyzePosture = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            viewA: { type: Type.OBJECT, properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, required: ['beforeLandmarks', 'afterLandmarks'] },
-            viewB: { type: Type.OBJECT, properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema } },
+            viewA: { 
+              type: Type.OBJECT, 
+              properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
+              required: ['beforeLandmarks', 'afterLandmarks'] 
+            },
+            viewB: { 
+              type: Type.OBJECT, 
+              properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema },
+              nullable: true
+            },
             overallBeforeScore: { type: Type.NUMBER },
             overallAfterScore: { type: Type.NUMBER },
             detailedScores: {
@@ -114,13 +121,11 @@ export const analyzePosture = async (
     });
 
     const text = response.text;
-    if (!text) throw new Error('AIレスポンスが空です');
+    if (!text) throw new Error('AIから応答がありませんでした。');
     return JSON.parse(text);
   } catch (e: any) {
-    if (e.message?.includes('429')) {
-      throw new Error('APIの利用制限に達しました。1分ほど待ってから再度お試しください。');
-    }
-    throw new Error(`分析エラー: ${e.message}`);
+    console.error("Analysis Error:", e);
+    throw new Error(`分析に失敗しました: ${e.message}`);
   }
 };
 
