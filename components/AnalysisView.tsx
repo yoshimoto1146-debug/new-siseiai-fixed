@@ -153,10 +153,6 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
           </div>
 
           <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar max-h-[500px] flex-grow">
-            {/* 
-              Fix: Explicitly cast Object.entries result to [string, PosturePoint][] to fix type errors 
-              where properties (label, status, scores, etc.) were being accessed on 'unknown'.
-            */}
             {(Object.entries(results.detailedScores) as [string, PosturePoint][]).map(([key, item]) => (
               <div key={key} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
                 <div className="flex items-center gap-5">
