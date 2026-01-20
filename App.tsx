@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { PhotoUploader } from './components/PhotoUploader';
 import { ImageAdjustment } from './components/ImageAdjustment';
@@ -110,13 +111,22 @@ const App: React.FC = () => {
 
         {step === 'align' && (
           <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500">
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-               {selectedViews.flatMap((_, i) => [
-                 <ImageAdjustment key={`v${i+1}-before`} photo={photos[`v${i+1}-before`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-before`]: p}))} />,
-                 <ImageAdjustment key={`v${i+1}-after`} photo={photos[`v${i+1}-after`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-after`]: p}))} referencePhoto={photos[`v${i+1}-before`]} />
+             <button onClick={() => setStep('upload')} className="text-slate-400 font-black text-xs flex items-center gap-2 tracking-widest uppercase mb-4"><ChevronLeft className="w-4 h-4" /> 画像選択に戻る</button>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+               {selectedViews.flatMap((view, i) => [
+                 <div key={`align-v${i+1}-before`} className="space-y-3">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{viewLabels[view]} : Before</p>
+                    <ImageAdjustment photo={photos[`v${i+1}-before`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-before`]: p}))} />
+                 </div>,
+                 <div key={`align-v${i+1}-after`} className="space-y-3">
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest text-center">{viewLabels[view]} : After (透過Before重畳中)</p>
+                    <ImageAdjustment photo={photos[`v${i+1}-after`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-after`]: p}))} referencePhoto={photos[`v${i+1}-before`]} />
+                 </div>
                ])}
              </div>
-             <button onClick={startAnalysis} className="mt-auto px-12 py-5 bg-blue-600 text-white rounded-3xl font-black flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-transform">
+             
+             <button onClick={startAnalysis} className="mt-8 px-12 py-6 bg-blue-600 text-white rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-2xl hover:scale-105 transition-transform sticky bottom-4 z-50">
                <Sparkles className="w-6 h-6" /> AI 高精密解析を開始
              </button>
           </div>
@@ -127,6 +137,7 @@ const App: React.FC = () => {
             <div className="my-auto flex flex-col items-center justify-center space-y-8">
               <div className="w-24 h-24 border-8 border-blue-50 border-t-blue-600 rounded-full animate-spin"></div>
               <h2 className="text-2xl font-black text-slate-900">AI 姿勢診断中...</h2>
+              <p className="text-slate-400 font-bold animate-pulse">最新の理学療法知見に基づいて分析しています</p>
             </div>
           ) : results && <AnalysisView results={results} photos={photos} onReset={() => setStep('type-select')} />
         )}
