@@ -1,7 +1,8 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ViewType, AnalysisResults } from "../types";
 
-export const resizeImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
+export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
@@ -19,10 +20,10 @@ export const resizeImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        ctx.imageSmoothingQuality = 'medium';
         ctx.drawImage(img, 0, 0, width, height);
       }
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      resolve(canvas.toDataURL('image/jpeg', 0.7)); // 品質を少し下げて軽量化
     };
   });
 };
@@ -34,12 +35,15 @@ export const analyzePosture = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
-提供されたBefore/After画像を分析し、姿勢の変化を詳細に評価してください。
-各評価項目（detailedScores）において、Before画像時点でのスコア（beforeScore）と、After画像時点でのスコア（afterScore）を算出して比較してください。
-重要: 各項目（detailedScores）の "description" フィールドには、その部位の姿勢を改善するための「具体的で短い理学療法的なアドバイス（日本語）」を必ず含めてください。
+提供されたBefore画像とAfter画像を比較し、姿勢の改善度を100点満点で厳格に評価してください。
 
-座標系は 0-1000 です。関節が見えない場合でも推測して値を埋めてください。
-必ず有効なJSONのみを返してください。`;
+重要ルール:
+1. BeforeとAfterの差を明確に数値化すること。
+2. 改善している場合は afterScore > beforeScore とすること。
+3. 各評価項目（detailedScores）についても、必ずbeforeScoreとafterScoreを算出し、具体的な変化を数値で示すこと。
+4. 日本語で、論理的かつ前向きなフィードバックを返すこと。
+
+座標系は 0-1000 です。関節が見えない場合でも推測して値を埋めてください。`;
 
   const pointSchema = {
     type: Type.OBJECT,
@@ -70,7 +74,7 @@ export const analyzePosture = async (
   };
 
   const parts = [
-    { text: `視点1: ${viewA.type}${viewB ? `, 視点2: ${viewB.type}` : ''}` },
+    { text: `分析対象視点1: ${viewA.type}${viewB ? `, 視点2: ${viewB.type}` : ''}` },
     { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
     { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
   ];
