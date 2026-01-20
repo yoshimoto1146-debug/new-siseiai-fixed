@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, Activity, ArrowLeft, Info, Sparkles, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
-import { AnalysisResults, PhotoData, PostureLandmarks, Point2D } from '../types';
+import { AnalysisResults, PhotoData, PostureLandmarks, Point2D, PosturePoint } from '../types';
 
 const LandmarkLayer: React.FC<{ 
   landmarks: PostureLandmarks; 
@@ -152,7 +153,11 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
           </div>
 
           <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar max-h-[500px] flex-grow">
-            {Object.entries(results.detailedScores).map(([key, item]) => (
+            {/* 
+              Fix: Explicitly cast Object.entries result to [string, PosturePoint][] to fix type errors 
+              where properties (label, status, scores, etc.) were being accessed on 'unknown'.
+            */}
+            {(Object.entries(results.detailedScores) as [string, PosturePoint][]).map(([key, item]) => (
               <div key={key} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
                 <div className="flex items-center gap-5">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${item.status === 'improved' ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-blue-600'}`}>
