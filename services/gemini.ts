@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ViewType, AnalysisResults } from "../types";
 
-export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+export const resizeImage = (base64Str: string, maxWidth = 768, maxHeight = 768): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
@@ -23,7 +23,7 @@ export const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800):
         ctx.imageSmoothingQuality = 'medium';
         ctx.drawImage(img, 0, 0, width, height);
       }
-      resolve(canvas.toDataURL('image/jpeg', 0.7)); // 品質を少し下げて軽量化
+      resolve(canvas.toDataURL('image/jpeg', 0.6)); // 圧縮率を高めてデータ量を削減
     };
   });
 };
@@ -35,15 +35,13 @@ export const analyzePosture = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
-提供されたBefore画像とAfter画像を比較し、姿勢の改善度を100点満点で厳格に評価してください。
+Before画像とAfter画像を比較し、姿勢改善を数値化してください。
 
-重要ルール:
-1. BeforeとAfterの差を明確に数値化すること。
-2. 改善している場合は afterScore > beforeScore とすること。
-3. 各評価項目（detailedScores）についても、必ずbeforeScoreとafterScoreを算出し、具体的な変化を数値で示すこと。
-4. 日本語で、論理的かつ前向きなフィードバックを返すこと。
-
-座標系は 0-1000 です。関節が見えない場合でも推測して値を埋めてください。`;
+評価の鉄則：
+1. 総合スコアと各詳細項目（ストレートネック等）のすべてで、Before点数とAfter点数を算出すること。
+2. 改善が見られる場合は After > Before の数値にすること。
+3. 日本語で論理的かつ具体的なアドバイスを添えること。
+4. landmarksの座標は 0-1000 の範囲で正確に出力すること。`;
 
   const pointSchema = {
     type: Type.OBJECT,
@@ -74,7 +72,7 @@ export const analyzePosture = async (
   };
 
   const parts = [
-    { text: `分析対象視点1: ${viewA.type}${viewB ? `, 視点2: ${viewB.type}` : ''}` },
+    { text: `視点1: ${viewA.type}${viewB ? `, 視点2: ${viewB.type}` : ''}を分析しJSONで返してください。` },
     { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
     { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
   ];
