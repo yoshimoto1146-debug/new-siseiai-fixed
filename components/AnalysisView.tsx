@@ -142,7 +142,7 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
             <div className="relative z-10 space-y-6">
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">姿勢スコアの変化</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">総合スコアの変化</p>
                   <div className="flex items-center gap-4">
                     <span className="text-3xl font-black text-slate-500">{results.overallBeforeScore}</span>
                     <TrendingUp className="w-6 h-6 text-blue-400" />
@@ -172,40 +172,25 @@ export const AnalysisView: React.FC<{ results: AnalysisResults; photos: Record<s
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${diff > 0 ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-blue-600'}`}>
                         {diff > 0 ? <CheckCircle2 className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
                       </div>
-                      <div>
+                      <div className="flex-grow">
                         <span className="font-black text-xs text-slate-800 uppercase tracking-wider">{item.label}</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-bold text-slate-400">{item.beforeScore}</span>
-                          <span className="text-xs text-slate-300">→</span>
-                          <span className={`text-xl font-black ${diff > 0 ? 'text-green-500' : 'text-blue-600'}`}>{item.afterScore}pts</span>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm font-bold text-slate-400">{item.beforeScore}点</span>
+                          <TrendingUp className="w-3 h-3 text-slate-300" />
+                          <span className={`text-xl font-black ${diff > 0 ? 'text-green-500' : 'text-blue-600'}`}>{item.afterScore}点</span>
                         </div>
                       </div>
                     </div>
                     {diff > 0 && (
-                      <span className="text-[10px] font-black bg-green-50 text-green-600 px-2 py-1 rounded-full border border-green-100">
+                      <span className="text-[10px] font-black bg-green-50 text-green-600 px-2 py-1 rounded-full border border-green-100 shrink-0">
                         +{diff}
                       </span>
                     )}
                   </div>
 
                   <div className="relative w-full h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                    {/* Before Score Bar */}
-                    <div 
-                      className="absolute inset-0 bg-slate-300/40 transition-all duration-1000 ease-out" 
-                      style={{ width: `${item.beforeScore}%` }}
-                    ></div>
-                    {/* After Score Bar */}
-                    <div 
-                      className={`absolute inset-0 ${diff > 0 ? 'bg-green-500' : 'bg-blue-600'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(59,130,246,0.3)]`} 
-                      style={{ width: `${item.afterScore}%` }}
-                    ></div>
-                    {/* Progress indicator */}
-                    {diff > 0 && (
-                      <div 
-                        className="absolute h-full bg-white/30 animate-pulse" 
-                        style={{ left: `${item.beforeScore}%`, width: `${diff}%` }}
-                      ></div>
-                    )}
+                    <div className="absolute inset-0 bg-slate-300/40" style={{ width: `${item.beforeScore}%` }}></div>
+                    <div className={`absolute inset-0 ${diff > 0 ? 'bg-green-500' : 'bg-blue-600'} h-full rounded-full transition-all duration-1000 ease-out`} style={{ width: `${item.afterScore}%` }}></div>
                   </div>
 
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
