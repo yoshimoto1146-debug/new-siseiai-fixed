@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PhotoUploader } from './components/PhotoUploader';
 import { ImageAdjustment } from './components/ImageAdjustment';
 import { AnalysisView } from './components/AnalysisView';
 import { ViewType, PhotoData, AnalysisResults } from './types';
 import { analyzePosture, fileToBase64, resizeImage } from './services/gemini';
-import { ChevronLeft, Sparkles, Activity, User, ArrowRight, AlertCircle, Key, Settings, Info, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Sparkles, Activity, User, ArrowRight, AlertCircle, Key, Settings } from 'lucide-react';
 
 const App: React.FC = () => {
   const [step, setStep] = useState<'type-select' | 'upload' | 'align' | 'analyze'>('type-select');
@@ -23,22 +23,43 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<AnalysisResults | null>(null);
 
-  useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+  const checkKeyStatus = useCallback(async () => {
+    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      try {
         const selected = await window.aistudio.hasSelectedApiKey();
         setHasKey(selected);
+      } catch (e) {
+        console.warn("Key status check failed, assuming false", e);
+        setHasKey(false);
       }
-    };
-    checkKey();
+    }
   }, []);
 
-  const handleSelectKey = async () => {
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-      await window.aistudio.openSelectKey();
-      // キー選択ダイアログを閉じた後は、選択されたとみなして進む
-      setHasKey(true);
-      setError(null);
+  useEffect(() => {
+    checkKeyStatus();
+    // 1秒後にもう一度チェック（window.aistudioの初期化ラグ対策）
+    const timer = setTimeout(checkKeyStatus, 1000);
+    return () => clearTimeout(timer);
+  }, [checkKeyStatus]);
+
+  const handleSelectKey = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log("Attempting to open key selection...");
+    try {
+      if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+        await window.aistudio.openSelectKey();
+        // 成功を信じて進む
+        setHasKey(true);
+        setError(null);
+      } else {
+        alert("設定画面を読み込めませんでした。お手数ですがページを再読み込み(リロード)してください。");
+      }
+    } catch (e) {
+      console.error("Key selection UI failed", e);
+      alert("エラーが発生しました。時間を置いて再度お試しください。");
     }
   };
 
@@ -112,7 +133,11 @@ const App: React.FC = () => {
           <h1 className="font-black text-slate-900 tracking-tight text-xl italic uppercase">PostureRefine Pro</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleSelectKey} className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm flex items-center gap-2 group">
+          <button 
+            type="button"
+            onClick={(e) => handleSelectKey(e)} 
+            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm flex items-center gap-2 group cursor-pointer"
+          >
             <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">スタッフ設定</span>
           </button>
@@ -131,7 +156,7 @@ const App: React.FC = () => {
                 分析を開始するには、ご自身のGoogleアカウントでAPIキーを選択する必要があります。
               </p>
             </div>
-            <button onClick={handleSelectKey} className="w-full py-6 bg-blue-600 text-white rounded-[2rem] font-black text-lg shadow-xl hover:bg-blue-700 transition-all active:scale-95">
+            <button onClick={(e) => handleSelectKey(e)} className="w-full py-6 bg-blue-600 text-white rounded-[2rem] font-black text-lg shadow-xl hover:bg-blue-700 transition-all active:scale-95">
               キーを選択して開始
             </button>
           </div>
@@ -184,13 +209,13 @@ const App: React.FC = () => {
                     <div className="text-center">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{viewLabels[view]} : Before</p>
                     </div>
-                    <ImageAdjustment photo={photos[`v${i+1}-before`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-before`]: p}))} />
+                    <ImageAdjustment photo={photos[`v${i+1}-before`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-before`]: p}))} viewType={view} />
                  </div>,
                  <div key={`align-v${i+1}-after`} className="space-y-4">
                     <div className="text-center">
                       <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{viewLabels[view]} : After</p>
                     </div>
-                    <ImageAdjustment photo={photos[`v${i+1}-after`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-after`]: p}))} referencePhoto={photos[`v${i+1}-before`]} />
+                    <ImageAdjustment photo={photos[`v${i+1}-after`]} onUpdate={(p) => setPhotos(prev => ({...prev, [`v${i+1}-after`]: p}))} viewType={view} referencePhoto={photos[`v${i+1}-before`]} />
                  </div>
                ])}
              </div>
@@ -218,7 +243,7 @@ const App: React.FC = () => {
               </div>
               <div className="flex flex-col gap-3">
                 {error.isQuota && (
-                  <button onClick={handleSelectKey} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2">
+                  <button onClick={(e) => handleSelectKey(e)} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2">
                     <Key className="w-5 h-5" /> 別のキーを選択する
                   </button>
                 )}
