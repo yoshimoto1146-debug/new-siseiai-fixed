@@ -50,13 +50,18 @@ const App: React.FC = () => {
       
       if (e.message === 'API_KEY_NOT_SET') {
         setError({
-          title: 'APIキー未設定',
-          message: '環境変数に API_KEY が設定されていません。プロジェクトの設定を確認してください。'
+          title: 'APIキーが見つかりません',
+          message: '公開設定の「Environment Variables」に API_KEY が正しく登録されているか確認してください。'
+        });
+      } else if (e.message === 'INVALID_API_KEY') {
+        setError({
+          title: '無効なAPIキー',
+          message: '設定されているAPIキーが正しくないか、有効期限が切れています。Google AI Studioで新しいキーを確認してください。'
         });
       } else {
         setError({
           title: '解析エラー',
-          message: 'AIとの通信に失敗しました。APIキーの有効期限や設定、ネットワーク状況を確認してください。'
+          message: 'AIとの通信中に不明なエラーが発生しました。ブラウザのコンソールで詳細を確認できます。'
         });
       }
       setIsAnalyzing(false);
@@ -137,7 +142,7 @@ const App: React.FC = () => {
               <button onClick={() => startAnalysis()} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 transition-colors hover:bg-slate-800">
                 <RefreshCcw className="w-5 h-5" /> 再試行
               </button>
-              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">詳細はブラウザのコンソールを確認してください</p>
+              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest italic">ブラウザのコンソールログに詳細が表示されます</p>
             </div>
           ) : results && <AnalysisView results={results} photos={photos} onReset={() => setStep('type-select')} />
         )}
