@@ -30,9 +30,7 @@ export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512):
 export const analyzePosture = async (
   viewA: { type: ViewType; before: string; after: string }
 ): Promise<AnalysisResults> => {
-  // API実行直前にインスタンス化することで、最新のAPIキー（process.env.API_KEY）を使用
   const apiKey = process.env.API_KEY;
-  
   if (!apiKey || apiKey === 'undefined' || apiKey === '') {
     throw new Error('MISSING_API_KEY');
   }
@@ -41,9 +39,7 @@ export const analyzePosture = async (
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
 BeforeとAfterの画像を比較し、姿勢改善を詳細に数値化してください。
-landmarksは 0-1000 の範囲で指定。
-spinePathは背中のラインに沿って正確に5点を抽出してください。
-全ての項目で beforeScore と afterScore を必ず算出すること。`;
+spinePathは背中のラインに沿って正確に5点を抽出してください。`;
 
   const pointSchema = {
     type: Type.OBJECT,
@@ -114,14 +110,11 @@ spinePathは背中のラインに沿って正確に5点を抽出してくださ�
       }
     });
 
-    const text = response.text;
-    if (!text) throw new Error('EMPTY_RESPONSE');
-    return JSON.parse(text);
+    if (!response.text) throw new Error('EMPTY_RESPONSE');
+    return JSON.parse(response.text);
   } catch (error: any) {
     const msg = error.message || '';
-    if (msg.includes('429') || msg.includes('quota')) throw new Error('QUOTA_EXCEEDED');
-    if (msg.includes('403') || msg.includes('400')) throw new Error('INVALID_API_KEY');
-    if (msg.includes('not found')) throw new Error('MODEL_NOT_FOUND');
+    if (msg.includes('429')) throw new Error('QUOTA_EXCEEDED');
     throw error;
   }
 };
