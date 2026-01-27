@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ViewType, AnalysisResults } from "../types";
 
@@ -31,10 +32,9 @@ export const analyzePosture = async (
 ): Promise<AnalysisResults> => {
   const apiKey = process.env.API_KEY;
   if (!apiKey || apiKey === 'undefined') {
-    throw new Error('MISSING_API_KEY');
+    throw new Error('API_KEY_NOT_SET');
   }
 
-  // クォータ制限の少ない flash モデルを使用
   const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。2枚の写真を比較し、姿勢改善を分析してください。
@@ -70,55 +70,49 @@ export const analyzePosture = async (
     required: ['label', 'beforeScore', 'afterScore', 'description', 'status']
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          { text: `分析視点: ${viewA.type}。比較分析を開始。` },
-          { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
-          { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
-        ]
-      },
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            viewA: { 
-              type: Type.OBJECT, 
-              properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
-              required: ['beforeLandmarks', 'afterLandmarks'] 
-            },
-            overallBeforeScore: { type: Type.NUMBER },
-            overallAfterScore: { type: Type.NUMBER },
-            detailedScores: {
-              type: Type.OBJECT,
-              properties: {
-                straightNeck: scoreItemSchema,
-                rolledShoulder: scoreItemSchema,
-                kyphosis: scoreItemSchema,
-                swayback: scoreItemSchema,
-                oLegs: scoreItemSchema
-              },
-              required: ['straightNeck', 'rolledShoulder', 'kyphosis', 'swayback', 'oLegs']
-            },
-            summary: { type: Type.STRING }
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: {
+      parts: [
+        { text: `分析視点: ${viewA.type}。比較分析を開始。` },
+        { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
+        { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
+      ]
+    },
+    config: {
+      systemInstruction,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          viewA: { 
+            type: Type.OBJECT, 
+            properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
+            required: ['beforeLandmarks', 'afterLandmarks'] 
           },
-          required: ['viewA', 'overallBeforeScore', 'overallAfterScore', 'detailedScores', 'summary']
-        }
+          overallBeforeScore: { type: Type.NUMBER },
+          overallAfterScore: { type: Type.NUMBER },
+          detailedScores: {
+            type: Type.OBJECT,
+            properties: {
+              straightNeck: scoreItemSchema,
+              rolledShoulder: scoreItemSchema,
+              kyphosis: scoreItemSchema,
+              swayback: scoreItemSchema,
+              oLegs: scoreItemSchema
+            },
+            required: ['straightNeck', 'rolledShoulder', 'kyphosis', 'swayback', 'oLegs']
+          },
+          summary: { type: Type.STRING }
+        },
+        required: ['viewA', 'overallBeforeScore', 'overallAfterScore', 'detailedScores', 'summary']
       }
-    });
+    }
+  });
 
-    // response.text プロパティから直接取得
-    const text = response.text;
-    if (!text) throw new Error('EMPTY_RESPONSE');
-    return JSON.parse(text.trim());
-  } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    throw error;
-  }
+  const text = response.text;
+  if (!text) throw new Error('EMPTY_RESPONSE');
+  return JSON.parse(text.trim());
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {
