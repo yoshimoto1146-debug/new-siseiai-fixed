@@ -22,7 +22,7 @@ export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512):
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(img, 0, 0, width, height);
       }
-      resolve(canvas.toDataURL('image/jpeg', 0.4));
+      resolve(canvas.toDataURL('image/jpeg', 0.6));
     };
   });
 };
@@ -30,23 +30,13 @@ export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512):
 export const analyzePosture = async (
   viewA: { type: ViewType; before: string; after: string }
 ): Promise<AnalysisResults> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
-    throw new Error('MISSING_API_KEY');
-  }
+  const key = process.env.API_KEY;
+  if (!key) throw new Error('MISSING_API_KEY');
 
-  // APIコール直前にインスタンス化
-  const ai = new GoogleGenAI({ apiKey: apiKey });
+  const ai = new GoogleGenAI({ apiKey: key });
   
-  const systemInstruction = `あなたは世界最高峰の理学療法士です。
-ユーザーがアップロードした2枚の写真（Before/After）を比較分析してください。
-特に「背骨のライン（spinePath）」を最重要視します。
-
-【分析のガイドライン】
-1. spinePath: 頸椎下部から仙骨まで、背骨の隆起に沿って正確に7点を抽出してください。
-2. landmark: 0-1000の範囲で座標を指定。
-3. 比較: BeforeとAfterで同じ基準点を用い、改善が見られる箇所を具体的に言語化してください。
-4. 数値化: 各項目のbeforeScore/afterScoreは、理想的な姿勢を100点として算出してください。`;
+  const systemInstruction = `あなたは理学療法士です。2枚の写真を比較し、背骨（spinePath）の7点を抽出して姿勢改善を分析してください。
+beforeScoreとafterScoreは100点満点で算出してください。`;
 
   const pointSchema = {
     type: Type.OBJECT,
@@ -58,7 +48,7 @@ export const analyzePosture = async (
     type: Type.OBJECT,
     properties: {
       head: pointSchema, ear: pointSchema, shoulder: pointSchema,
-      spinePath: { type: Type.ARRAY, items: pointSchema, description: "背骨の曲線を表す7つの点" },
+      spinePath: { type: Type.ARRAY, items: pointSchema },
       hip: pointSchema, knee: pointSchema, ankle: pointSchema, heel: pointSchema
     },
     required: ['head', 'ear', 'shoulder', 'spinePath', 'hip', 'knee', 'ankle', 'heel']
@@ -76,16 +66,14 @@ export const analyzePosture = async (
     required: ['label', 'beforeScore', 'afterScore', 'description', 'status']
   };
 
-  const parts = [
-    { text: `分析視点: ${viewA.type}。背中のラインの変化に注目して詳細にスコアリングしてください。` },
-    { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
-    { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
-  ];
-
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: { parts },
+      model: 'gemini-3-flash-preview',
+      contents: [
+        { text: `視点: ${viewA.type}。比較分析を開始します。` },
+        { inlineData: { data: viewA.before.split(',')[1], mimeType: 'image/jpeg' } },
+        { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
+      ],
       config: {
         systemInstruction,
         responseMimeType: 'application/json',
@@ -120,6 +108,7 @@ export const analyzePosture = async (
     if (!response.text) throw new Error('EMPTY_RESPONSE');
     return JSON.parse(response.text.trim());
   } catch (error: any) {
+    console.error("API Error:", error);
     throw error;
   }
 };
