@@ -1,6 +1,5 @@
 
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PhotoUploader } from './components/PhotoUploader';
 import { ImageAdjustment } from './components/ImageAdjustment';
 import { AnalysisView } from './components/AnalysisView';
@@ -25,18 +24,39 @@ const App: React.FC = () => {
     front: '前面', back: '後面', side: '側面', extension: '伸展', flexion: '屈曲'
   };
 
+  // 起動時にAI Studio環境を確認
+  useEffect(() => {
+    const checkKey = async () => {
+      if (window.aistudio) {
+        try {
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          if (!hasKey) {
+            console.log("API Key not found, prompting user...");
+          }
+        } catch (e) {
+          console.error("AI Studio integration error", e);
+        }
+      }
+    };
+    checkKey();
+  }, []);
+
   const handleOpenKeySelector = async () => {
-    // Use properly typed window.aistudio from types.ts
-    const aiStudio = window.aistudio;
-    if (aiStudio && typeof aiStudio.openSelectKey === 'function') {
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
       try {
-        await aiStudio.openSelectKey();
+        await window.aistudio.openSelectKey();
         setError(null);
+        // キー選択後は成功したとみなして続行
       } catch (e) {
         console.error("Key selection failed", e);
       }
     } else {
-      alert("APIキー設定機能は、特定のブラウザ環境（AI Studio）でのみ利用可能です。それ以外の場合は .env ファイルに設定してください。");
+      // AI Studio環境以外（ローカルや通常のWeb公開）の場合
+      setError({
+        title: 'APIキーが設定されていません',
+        message: 'この環境では、.envファイルまたはデプロイ設定の「API_KEY」にGemini APIキーを設定してください。',
+        type: 'key'
+      });
     }
   };
 
@@ -68,33 +88,33 @@ const App: React.FC = () => {
       console.error("Analysis Error Details:", e);
       const msg = e.message || '';
 
-      // Guideline check: if entity not found, prompt for key again
-      if (msg.includes('Requested entity was not found.')) {
-        handleOpenKeySelector();
+      // ガイドライン対応: 「Requested entity was not found」の場合はキー再選択
+      if (msg.includes('Requested entity was not found') || msg.includes('404')) {
         setIsAnalyzing(false);
+        handleOpenKeySelector();
         return;
       }
 
-      if (msg === 'MISSING_API_KEY' || msg === 'INVALID_API_KEY' || msg === 'MODEL_NOT_FOUND') {
+      if (msg === 'MISSING_API_KEY' || msg === 'INVALID_API_KEY') {
         setError({
-          title: 'APIキーの設定が必要です',
-          message: '解析を実行するには、有効なGemini APIキーを選択してください。',
+          title: 'APIキーが必要です',
+          message: '解析を行うには、有効なGemini APIキーを設定または選択してください。',
           type: 'key'
         });
       } else if (msg === 'QUOTA_EXCEEDED') {
         setError({
-          title: '利用制限に達しました',
-          message: '無料枠の上限に達したか、短時間にリクエストが集中しました。しばらく待ってから再度お試しください。',
+          title: '利用制限（無料枠）を超えました',
+          message: 'APIの無料枠の上限に達しました。しばらく待ってから再度お試しください。',
           type: 'quota'
         });
       } else {
-        if (retryCount < 2) {
+        if (retryCount < 1) { // ネットワーク一時エラーを考慮して1回だけ自動リトライ
           setTimeout(() => startAnalysis(retryCount + 1), 2000);
           return;
         }
         setError({
           title: '通信エラーが発生しました',
-          message: 'インターネット接続を確認するか、しばらく待ってから「再試行」を押してください。',
+          message: 'APIへの接続に失敗しました。APIキーが正しいか、インターネット接続を確認してください。',
           detail: msg,
           type: 'network'
         });
@@ -204,18 +224,16 @@ const App: React.FC = () => {
               <div className="space-y-3">
                 <h2 className="text-2xl font-black text-slate-900">{error.title}</h2>
                 <p className="text-slate-500 font-bold leading-relaxed">{error.message}</p>
-                {error.detail && <p className="text-[10px] text-slate-300 font-mono mt-2 overflow-hidden text-ellipsis whitespace-nowrap">{error.detail}</p>}
+                {error.detail && <p className="text-[10px] text-slate-300 font-mono mt-2 overflow-hidden text-ellipsis italic">Error: {error.detail}</p>}
               </div>
               
               <div className="flex flex-col gap-3">
-                {(error.type === 'key' || error.type === 'network') && (
-                  <button 
-                    onClick={handleOpenKeySelector} 
-                    className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
-                  >
-                    <Key className="w-5 h-5" /> APIキーを設定する
-                  </button>
-                )}
+                <button 
+                  onClick={handleOpenKeySelector} 
+                  className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+                >
+                  <Key className="w-5 h-5" /> APIキーを設定/選択する
+                </button>
                 
                 <button 
                   onClick={() => startAnalysis(0)} 
