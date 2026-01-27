@@ -51,16 +51,9 @@ export interface PhotoData {
   isFlipped: boolean;
 }
 
-// Renamed from AIStudioBridge to AIStudio to match existing global type expectations for the aistudio property on Window
 export interface AIStudio {
   hasSelectedApiKey: () => Promise<boolean>;
   openSelectKey: () => Promise<void>;
-}
-
-declare global {
-  interface Window {
-    aistudio?: AIStudio;
-  }
 }
 
 export {};
