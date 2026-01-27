@@ -22,7 +22,6 @@ export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512):
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(img, 0, 0, width, height);
       }
-      // 圧縮率を0.4に下げて通信量を最小化
       resolve(canvas.toDataURL('image/jpeg', 0.4));
     };
   });
@@ -31,19 +30,20 @@ export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512):
 export const analyzePosture = async (
   viewA: { type: ViewType; before: string; after: string }
 ): Promise<AnalysisResults> => {
+  // API実行直前にインスタンス化することで、最新のAPIキー（process.env.API_KEY）を使用
   const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === 'undefined' || apiKey.length < 5) {
-    throw new Error('API_KEY_MISSING: APIキーが設定されていません。環境変数を確認してください。');
+  
+  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+    throw new Error('MISSING_API_KEY');
   }
 
-  // Use new GoogleGenAI right before the call to ensure up-to-date API key usage
   const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
 BeforeとAfterの画像を比較し、姿勢改善を詳細に数値化してください。
 landmarksは 0-1000 の範囲で指定。
-spinePathは背中のラインに沿って「正確に5点だけ」抽出してください。
-全ての詳細項目で beforeScore と afterScore を必ず個別に算出すること。`;
+spinePathは背中のラインに沿って正確に5点を抽出してください。
+全ての項目で beforeScore と afterScore を必ず算出すること。`;
 
   const pointSchema = {
     type: Type.OBJECT,
@@ -55,7 +55,7 @@ spinePathは背中のラインに沿って「正確に5点だけ」抽出して�
     type: Type.OBJECT,
     properties: {
       head: pointSchema, ear: pointSchema, shoulder: pointSchema,
-      spinePath: { type: Type.ARRAY, items: pointSchema, description: "Exactly 5 points" },
+      spinePath: { type: Type.ARRAY, items: pointSchema },
       hip: pointSchema, knee: pointSchema, ankle: pointSchema, heel: pointSchema
     },
     required: ['head', 'ear', 'shoulder', 'spinePath', 'hip', 'knee', 'ankle', 'heel']
@@ -79,46 +79,51 @@ spinePathは背中のラインに沿って「正確に5点だけ」抽出して�
     { inlineData: { data: viewA.after.split(',')[1], mimeType: 'image/jpeg' } }
   ];
 
-  // Updated model to gemini-3-flash-preview for multi-modal analysis tasks
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: { parts },
-    config: {
-      systemInstruction,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          viewA: { 
-            type: Type.OBJECT, 
-            properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
-            required: ['beforeLandmarks', 'afterLandmarks'] 
-          },
-          overallBeforeScore: { type: Type.NUMBER },
-          overallAfterScore: { type: Type.NUMBER },
-          detailedScores: {
-            type: Type.OBJECT,
-            properties: {
-              straightNeck: scoreItemSchema,
-              rolledShoulder: scoreItemSchema,
-              kyphosis: scoreItemSchema,
-              swayback: scoreItemSchema,
-              oLegs: scoreItemSchema
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts },
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            viewA: { 
+              type: Type.OBJECT, 
+              properties: { beforeLandmarks: landmarkSchema, afterLandmarks: landmarkSchema }, 
+              required: ['beforeLandmarks', 'afterLandmarks'] 
             },
-            required: ['straightNeck', 'rolledShoulder', 'kyphosis', 'swayback', 'oLegs']
+            overallBeforeScore: { type: Type.NUMBER },
+            overallAfterScore: { type: Type.NUMBER },
+            detailedScores: {
+              type: Type.OBJECT,
+              properties: {
+                straightNeck: scoreItemSchema,
+                rolledShoulder: scoreItemSchema,
+                kyphosis: scoreItemSchema,
+                swayback: scoreItemSchema,
+                oLegs: scoreItemSchema
+              },
+              required: ['straightNeck', 'rolledShoulder', 'kyphosis', 'swayback', 'oLegs']
+            },
+            summary: { type: Type.STRING }
           },
-          summary: { type: Type.STRING }
-        },
-        required: ['viewA', 'overallBeforeScore', 'overallAfterScore', 'detailedScores', 'summary']
+          required: ['viewA', 'overallBeforeScore', 'overallAfterScore', 'detailedScores', 'summary']
+        }
       }
-    }
-  });
+    });
 
-  if (!response.text) {
-    throw new Error('MODEL_EMPTY_RESPONSE: モデルから空の応答が返されました。');
+    const text = response.text;
+    if (!text) throw new Error('EMPTY_RESPONSE');
+    return JSON.parse(text);
+  } catch (error: any) {
+    const msg = error.message || '';
+    if (msg.includes('429') || msg.includes('quota')) throw new Error('QUOTA_EXCEEDED');
+    if (msg.includes('403') || msg.includes('400')) throw new Error('INVALID_API_KEY');
+    if (msg.includes('not found')) throw new Error('MODEL_NOT_FOUND');
+    throw error;
   }
-
-  return JSON.parse(response.text);
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {
