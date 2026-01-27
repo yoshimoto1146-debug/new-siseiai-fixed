@@ -51,13 +51,18 @@ export interface PhotoData {
   isFlipped: boolean;
 }
 
-// Fix: Directly declare the structure in global Window to avoid "Subsequent property declarations" conflict
+/**
+ * Fix: Defines the AIStudio interface and uses it for window.aistudio to resolve
+ * "Subsequent property declarations must have the same type" conflict.
+ */
+export interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
 declare global {
   interface Window {
-    aistudio?: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
+    aistudio?: AIStudio;
   }
 }
 
