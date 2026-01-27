@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PhotoUploader } from './components/PhotoUploader';
 import { ImageAdjustment } from './components/ImageAdjustment';
@@ -47,11 +46,19 @@ const App: React.FC = () => {
       setResults(res);
       setIsAnalyzing(false);
     } catch (e: any) {
-      console.error("Analysis error:", e);
-      setError({
-        title: '解析エラー',
-        message: 'AIとの通信に失敗しました。APIキーが正しく設定されているか確認してください。'
-      });
+      console.error("Analysis caught error:", e);
+      
+      if (e.message === 'API_KEY_NOT_SET') {
+        setError({
+          title: 'APIキー未設定',
+          message: '環境変数に API_KEY が設定されていません。プロジェクトの設定を確認してください。'
+        });
+      } else {
+        setError({
+          title: '解析エラー',
+          message: 'AIとの通信に失敗しました。APIキーの有効期限や設定、ネットワーク状況を確認してください。'
+        });
+      }
       setIsAnalyzing(false);
     }
   };
@@ -127,9 +134,10 @@ const App: React.FC = () => {
               <AlertCircle className="w-20 h-20 text-red-500 mx-auto" />
               <h2 className="text-2xl font-black">{error.title}</h2>
               <p className="text-slate-500 font-bold">{error.message}</p>
-              <button onClick={() => startAnalysis()} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2">
+              <button onClick={() => startAnalysis()} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 transition-colors hover:bg-slate-800">
                 <RefreshCcw className="w-5 h-5" /> 再試行
               </button>
+              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">詳細はブラウザのコンソールを確認してください</p>
             </div>
           ) : results && <AnalysisView results={results} photos={photos} onReset={() => setStep('type-select')} />
         )}
