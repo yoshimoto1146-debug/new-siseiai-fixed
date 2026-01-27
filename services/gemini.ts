@@ -35,7 +35,8 @@ export const analyzePosture = async (
     throw new Error('MISSING_API_KEY');
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  // Create instance right before making an API call to ensure it uses the most up-to-date API key
+  const ai = new GoogleGenAI({ apiKey: apiKey });
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。
 ユーザーがアップロードした2枚の写真（Before/After）を比較分析してください。
@@ -83,7 +84,8 @@ export const analyzePosture = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      // Using gemini-3-pro-preview for complex anatomical reasoning and landmark detection
+      model: 'gemini-3-pro-preview',
       contents: { parts },
       config: {
         systemInstruction,
@@ -117,7 +119,7 @@ export const analyzePosture = async (
     });
 
     if (!response.text) throw new Error('EMPTY_RESPONSE');
-    return JSON.parse(response.text);
+    return JSON.parse(response.text.trim());
   } catch (error: any) {
     const msg = error.message || '';
     if (msg.includes('429')) throw new Error('QUOTA_EXCEEDED');
