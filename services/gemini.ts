@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ViewType, AnalysisResults } from "../types";
 
-export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512): Promise<string> => {
+// 画像のクオリティを向上（512px -> 1024px, quality 0.6 -> 0.85）
+export const resizeImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
@@ -19,9 +20,11 @@ export const resizeImage = (base64Str: string, maxWidth = 512, maxHeight = 512):
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
       }
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
+      // 画質を 0.85 に向上
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
   });
 };
@@ -34,13 +37,12 @@ export const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// リトライ用のユーティリティ関数
-async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 2000): Promise<T> {
   try {
     return await fn();
   } catch (error: any) {
-    if (retries > 0 && (error.status === 503 || error.message?.includes('503') || error.message?.includes('overloaded'))) {
-      console.warn(`Model overloaded. Retrying in ${delay}ms... (${retries} attempts left)`);
+    console.error("Attempt failed:", error);
+    if (retries > 0) {
       await new Promise(resolve => setTimeout(resolve, delay));
       return withRetry(fn, retries - 1, delay * 1.5);
     }
@@ -51,13 +53,13 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
 export const analyzePosture = async (
   viewA: { type: ViewType; before: string; after: string }
 ): Promise<AnalysisResults> => {
-  // Always use process.env.API_KEY directly as per guidelines.
-  if (!process.env.API_KEY || process.env.API_KEY === 'undefined' || process.env.API_KEY === '') {
+  // 環境変数のチェックを強化
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
     throw new Error('API_KEY_NOT_SET');
   }
 
-  // Use the initialization pattern recommended in the guidelines.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `あなたは世界最高峰の理学療法士です。2枚の写真を比較し、姿勢改善を分析してください。
 座標は画像全体を1000x1000とした相対値で出力してください。
@@ -118,8 +120,9 @@ export const analyzePosture = async (
   };
 
   return withRetry(async () => {
+    // モデルを gemini-3-flash-preview に変更（Proを避けるため）
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { text: `分析視点: ${viewA.type}。1枚目がBefore（改善前）、2枚目がAfter（改善後）です。詳細に分析してJSONで出力してください。` },
@@ -134,9 +137,13 @@ export const analyzePosture = async (
       }
     });
 
-    // Directly access the text property as per guidelines.
     const text = response.text;
     if (!text) throw new Error('EMPTY_RESPONSE');
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("JSON Parse Error:", text);
+      throw new Error('INVALID_JSON_RESPONSE');
+    }
   });
 };
